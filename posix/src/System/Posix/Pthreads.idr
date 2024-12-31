@@ -1,179 +1,54 @@
 module System.Posix.Pthreads
 
+import System.Posix.Pthreads.Prim as P
 import public Data.C.Ptr
 import public System.Posix.Errno
+import public System.Posix.Pthreads.Struct
 import public System.Posix.Pthreads.Types
 import System.Posix.Signal
 import System.Posix.Time
 
 %default total
 
---------------------------------------------------------------------------------
--- FFI
---------------------------------------------------------------------------------
-
-%foreign "C:pthread_equal, posix-idris"
-prim__pthread_equal : AnyPtr -> AnyPtr -> Bits8
-
-%foreign "C:pthread_self, posix-idris"
-prim__pthread_self : PrimIO AnyPtr
-
-%foreign "C:li_pthread_join, posix-idris"
-prim__pthread_join : AnyPtr -> PrimIO Bits32
-
-%foreign "C:li_pthread_mutex_init, posix-idris"
-prim__pthread_mutex_init : AnyPtr -> Bits8 -> PrimIO Bits32
-
-%foreign "C:li_pthread_mutex_destroy, posix-idris"
-prim__pthread_mutex_destroy : AnyPtr -> PrimIO ()
-
-%foreign "C:pthread_mutex_lock, posix-idris"
-prim__pthread_mutex_lock : AnyPtr -> PrimIO Bits32
-
-%foreign "C:pthread_mutex_trylock, posix-idris"
-prim__pthread_mutex_trylock : AnyPtr -> PrimIO Bits32
-
-%foreign "C:pthread_mutex_timedlock, posix-idris"
-prim__pthread_mutex_timedlock : AnyPtr -> AnyPtr -> PrimIO Bits32
-
-%foreign "C:pthread_mutex_unlock, posix-idris"
-prim__pthread_mutex_unlock : AnyPtr -> PrimIO Bits32
-
-%foreign "C:li_pthread_cond_init, posix-idris"
-prim__pthread_cond_init : AnyPtr -> PrimIO Bits32
-
-%foreign "C:li_pthread_cond_destroy, posix-idris"
-prim__pthread_cond_destroy : AnyPtr -> PrimIO ()
-
-%foreign "C:pthread_cond_signal, posix-idris"
-prim__pthread_cond_signal : AnyPtr -> PrimIO Bits32
-
-%foreign "C:pthread_cond_broadcast, posix-idris"
-prim__pthread_cond_broadcast : AnyPtr -> PrimIO Bits32
-
-%foreign "C:pthread_cond_wait, posix-idris"
-prim__pthread_cond_wait : AnyPtr -> AnyPtr -> PrimIO Bits32
-
-%foreign "C:pthread_cond_timedwait, posix-idris"
-prim__pthread_cond_timedwait : AnyPtr -> AnyPtr -> AnyPtr -> PrimIO Bits32
-
-%foreign "C:pthread_cancel, posix-idris"
-prim__pthread_cancel : AnyPtr -> PrimIO Bits32
-
-%foreign "C:pthread_testcancel, posix-idris"
-prim__pthread_testcancel : PrimIO ()
-
-%foreign "C:li_pthread_setcanceltype, posix-idris"
-prim__pthread_setcanceltype : Bits8 -> PrimIO Bits8
-
-%foreign "C:li_pthread_setcancelstate, posix-idris"
-prim__pthread_setcancelstate : Bits8 -> PrimIO Bits8
-
-%foreign "C:li_pthread_sigmask1, posix-idris"
-prim__pthread_sigmask1 : Bits8 -> AnyPtr -> PrimIO ()
-
-%foreign "C:li_pthread_sigmask, posix-idris"
-prim__pthread_sigmask : Bits8 -> AnyPtr -> PrimIO AnyPtr
-
-%foreign "C:li_pthread_siggetmask, posix-idris"
-prim__pthread_siggetmask : PrimIO AnyPtr
-
-%foreign "C:pthread_kill, posix-idris"
-prim__pthread_kill : AnyPtr -> Bits32 -> PrimIO Bits32
-
---------------------------------------------------------------------------------
--- API
---------------------------------------------------------------------------------
-
-||| Wrapper around an identifier for a POSIX thread.
-export
-record PthreadT where
-  constructor P
-  ptr : AnyPtr
-
-export %inline
-unwrapPthreadT : PthreadT -> AnyPtr
-unwrapPthreadT = ptr
-
 ||| Returns the thread ID of the current thread.
 export %inline
 pthreadSelf : HasIO io => io PthreadT
-pthreadSelf = primMap P $ prim__pthread_self
+pthreadSelf = primIO P.pthreadSelf
 
 ||| Blocks the current thread and waits for the given thread to terminate.
 export %inline
 pthreadJoin : ErrIO io => PthreadT -> io ()
-pthreadJoin p = posToUnit $ prim__pthread_join p.ptr
-
-export %inline
-Eq PthreadT where
-  x == y = toBool (prim__pthread_equal x.ptr y.ptr)
-
-||| Warning: This `Show` implementation for thread IDs is for debugging only!
-||| According to SUSv3, a thread ID need not be a scalar, so it should be
-||| treated as an opaque type.
-|||
-||| On many implementations (including on Linux), they are just integers, so
-||| this can be useful for debugging.
-export %inline
-Show PthreadT where
-  show (P p) = show (believe_me {b = Bits64} p)
-
---------------------------------------------------------------------------------
--- MutexT
---------------------------------------------------------------------------------
-
-||| Wrapper around a `pthread_mutex_t` pointer.
-|||
-||| Noted: While this provides additional flexibility over the type of mutex
-||| we use (see `mkmutex`) and how we acquire a lock on a mutex, it is less
-||| convenient to use than the garbage-collected version from
-||| `System.Concurrency`.
-export
-record MutexT where
-  constructor M
-  ptr : AnyPtr
-
-%inline
-Struct MutexT where
-  unwrap = ptr
-  wrap   = M
-
-%inline
-SizeOf MutexT where sizeof_ = mutex_t_size
+pthreadJoin p = eprim (P.pthreadJoin p)
 
 ||| Allocates and initializes a new mutex of the given type.
 |||
 ||| This must be freed with `destroyMutex`.
 export
 mkmutex : ErrIO io => MutexType -> io MutexT
-mkmutex t = do
-  m <- allocStruct MutexT
-  x <- primIO $ prim__pthread_mutex_init m.ptr (mutexCode t)
-  case x of
-    0 => pure m
-    x => freeStruct m >> error (EN x)
+mkmutex t = eprim (P.mkmutex t)
 
 ||| Destroys a mutex and frees the memory allocated for it.
 export %inline
 destroyMutex : HasIO io => MutexT -> io ()
-destroyMutex m = primIO $ prim__pthread_mutex_destroy m.ptr
+destroyMutex m = primIO (P.destroyMutex m)
 
 ||| Tries to lock the given mutex, blocking the calling thread
 ||| in case it is already locked.
 export %inline
 lockMutex : ErrIO io => MutexT -> io ()
-lockMutex p = posToUnit $ prim__pthread_mutex_lock p.ptr
+lockMutex p = eprim (P.lockMutex p)
 
-export %inline
-timedlockMutex : ErrIO io => MutexT -> Timespec -> io ()
-timedlockMutex p t = posToUnit $ prim__pthread_mutex_timedlock p.ptr (unwrap t)
+||| Like `lockMutex` but returns a boolean with `False` indicating
+||| that the lock timed out
+export
+timedlockMutex : ErrIO io => MutexT -> Clock Duration -> io Bool
+timedlockMutex p cl = eprim (P.timedlockMutex p cl)
 
-||| Like `lockMutex` but fails with `EBUSY` in case the mutex is
+||| Like `lockMutex` but returns `False` in case the mutex is
 ||| already locked.
-export %inline
-trylockMutex : ErrIO io => MutexT -> io ()
-trylockMutex p = posToUnit $ prim__pthread_mutex_trylock p.ptr
+export
+trylockMutex : ErrIO io => MutexT -> io Bool
+trylockMutex p = eprim (P.trylockMutex p)
 
 ||| Unlocks the given mutex.
 |||
@@ -181,46 +56,23 @@ trylockMutex p = posToUnit $ prim__pthread_mutex_trylock p.ptr
 ||| the mutex's lock.
 export %inline
 unlockMutex : ErrIO io => MutexT -> io ()
-unlockMutex p = posToUnit $ prim__pthread_mutex_unlock p.ptr
+unlockMutex p = eprim (P.unlockMutex p)
 
 --------------------------------------------------------------------------------
 -- CondT
 --------------------------------------------------------------------------------
 
-||| Wrapper around a `pthread_cond_t` pointer.
-|||
-||| Noted: While this provides additional flexibility over the type of condition
-||| we use (see `mkcond`) convenient to use than the garbage-collected version from
-||| `System.Concurrency`.
-export
-record CondT where
-  constructor C
-  ptr : AnyPtr
-
-%inline
-Struct CondT where
-  unwrap = ptr
-  wrap   = C
-
-%inline
-SizeOf CondT where sizeof_ = cond_t_size
-
 ||| Allocates and initializes a new condition variable.
 |||
 ||| This must be freed with `destroyCond`.
-export
+export %inline
 mkcond : ErrIO io => io CondT
-mkcond = do
-  m <- allocStruct CondT
-  x <- primIO $ prim__pthread_cond_init m.ptr
-  case x of
-    0 => pure m
-    x => freeStruct m >> error (EN x)
+mkcond = eprim P.mkcond
 
 ||| Destroys a condition variable and frees the memory allocated for it.
 export %inline
 destroyCond : HasIO io => CondT -> io ()
-destroyCond m = primIO $ prim__pthread_cond_destroy m.ptr
+destroyCond = primIO . destroyCond
 
 ||| Signals the given `pthread_cond_t`.
 |||
@@ -229,14 +81,14 @@ destroyCond m = primIO $ prim__pthread_cond_destroy m.ptr
 ||| of them will be woken up.
 export %inline
 condSignal : ErrIO io => CondT -> io ()
-condSignal p = posToUnit $ prim__pthread_cond_signal p.ptr
+condSignal = eprim . condSignal
 
 ||| Broadcasts the given `pthread_cond_t`.
 |||
 ||| This will wake up all threads waiting on the given condition.
 export %inline
 condBroadcast : ErrIO io => CondT -> io ()
-condBroadcast p = posToUnit $ prim__pthread_cond_broadcast p.ptr
+condBroadcast = eprim . condBroadcast
 
 ||| Blocks the given thread and waits for the given condition to
 ||| be signalled.
@@ -246,47 +98,37 @@ condBroadcast p = posToUnit $ prim__pthread_cond_broadcast p.ptr
 ||| the thread is woken up, the mutex will automatically be locked again.
 export %inline
 condWait : ErrIO io => CondT -> MutexT -> io ()
-condWait p m = posToUnit $ prim__pthread_cond_wait p.ptr m.ptr
+condWait c = eprim . condWait c
 
-||| Like `condWait` but will return with `ETIMEDOUT` after the given
-||| time interval expires.
+||| Like `condWait` but will return `False` in case the operation timed out.
 export %inline
-condTimedwait : ErrIO io => CondT -> MutexT -> Timespec -> io ()
-condTimedwait p m t =
-  posToUnit $ prim__pthread_cond_timedwait p.ptr m.ptr (unwrap t)
+condTimedwait : ErrIO io => CondT -> MutexT -> Clock Duration -> io Bool
+condTimedwait c m = eprim . condTimedwait c m
 
 --------------------------------------------------------------------------------
 -- Thread Cancelation
 --------------------------------------------------------------------------------
 
-toTpe : Bits8 -> CancelType
-toTpe b =
-  if b == cancelType CANCEL_DEFERRED then CANCEL_DEFERRED else CANCEL_ASYNCHRONOUS
-
-toSt : Bits8 -> CancelState
-toSt b =
-  if b == cancelState CANCEL_ENABLE then CANCEL_ENABLE else CANCEL_DISABLE
-
 ||| Sends a cancelation request to the given thread.
 export %inline
 pthreadCancel : ErrIO io => PthreadT -> io ()
-pthreadCancel t = posToUnit $ prim__pthread_cancel t.ptr
+pthreadCancel = eprim . P.pthreadCancel
 
 ||| Tests for thread cancelation in the absence of other cancelation
 ||| points.
 export %inline
 pthreadTestCancel : HasIO io => io ()
-pthreadTestCancel = primIO prim__pthread_testcancel
+pthreadTestCancel = primIO P.pthreadTestCancel
 
 ||| Sets the current thread's cancel type returning the previous cancel type.
 export %inline
 setCancelType : HasIO io => CancelType -> io CancelType
-setCancelType t = primMap toTpe $ prim__pthread_setcanceltype (cancelType t)
+setCancelType = primIO . P.setCancelType
 
 ||| Sets the current thread's cancel state returning the previous cancel state.
 export %inline
 setCancelState : HasIO io => CancelState -> io CancelState
-setCancelState t = primMap toSt $ prim__pthread_setcancelstate (cancelState t)
+setCancelState = primIO . P.setCancelState
 
 --------------------------------------------------------------------------------
 -- Signals and Threads
@@ -294,24 +136,9 @@ setCancelState t = primMap toSt $ prim__pthread_setcancelstate (cancelState t)
 
 ||| Adjust the thread's signal mask according to the given `How`
 ||| and signal set.
-|||
-||| Note: This allocates a new `sigset_t` pointer and returns the
-|||       previously set signal mask. Client code is responsible to
-|||       free the memory for this once it is no longer used.
-|||       See also `pthreadSigmask'` for a version that does not return
-|||       the previous signal mask.
 export %inline
-pthreadSigmask : HasIO io => How -> SigsetT -> io SigsetT
-pthreadSigmask h p =
-  primIO $ \w =>
-    let MkIORes p2 w := prim__pthread_sigmask (howCode h) (unwrap p) w
-     in MkIORes (wrap p2) w
-
-||| Like `sigprocmask` but does not allocate a pointer for the
-||| previous `sigset_t`.
-export %inline
-pthreadSigmask' : HasIO io => How -> SigsetT -> io ()
-pthreadSigmask' h p = primIO $ prim__pthread_sigmask1 (howCode h) (unwrap p)
+pthreadSigmask : ErrIO io => How -> List Signal -> io ()
+pthreadSigmask h = eprim . P.pthreadSigmask h
 
 ||| Returns the current signal mask of the thread.
 |||
@@ -320,12 +147,10 @@ pthreadSigmask' h p = primIO $ prim__pthread_sigmask1 (howCode h) (unwrap p)
 |||       free the memory for this once it is no longer used.
 export %inline
 pthreadSiggetmask : HasIO io => io SigsetT
-pthreadSiggetmask =
-  primIO $ \w =>
-    let MkIORes p w := prim__pthread_siggetmask w
-     in MkIORes (wrap p) w
+pthreadSiggetmask = primIO P.pthreadSiggetmask
+
 
 ||| Sends the given signal to the given thread.
 export %inline
 pthreadKill : ErrIO io => PthreadT -> Signal -> io ()
-pthreadKill t s = posToUnit $ prim__pthread_kill t.ptr s.sig
+pthreadKill t = eprim . P.pthreadKill t

@@ -36,6 +36,11 @@ import Example.Ch44.ChunkPipe
 import Example.Ch44.PipeSync
 import Example.Ch44.FifoServer
 
+import Example.Ch57.DgramClient
+import Example.Ch57.DgramServer
+import Example.Ch57.UnixClient
+import Example.Ch57.UnixServer
+
 import Example.Ch63.EpollExample
 import Example.Ch63.EpollPerformance
 
@@ -65,7 +70,7 @@ parameters {auto has : Has Errno es}
   readTill : FileDesc a => Fuel -> Nat -> a -> Prog es ()
   readTill Dry      n fd = stdoutLn "out of fuel"
   readTill (More x) n fd =
-    read fd 0x10000 >>= \case
+    read fd ByteString 0x10000 >>= \case
       BS 0 _ => stdoutLn "reached end of file after \{show n} bytes"
       BS m y => stdoutLn "read \{show m} bytes" >> readTill x (m+n) fd
 
@@ -122,6 +127,10 @@ prog = do
     "pipe_sync"               :: t => pipeSync t
     "fifo_server"             :: t => fifoServer t
     "fifo_client"             :: t => fifoClient t
+    "unix-client"             :: t => unixClient t
+    "unix-server"             :: t => unixServer t
+    "dgram-client"            :: t => dgramClient t
+    "dgram-server"            :: t => dgramServer t
     "epoll_example"           :: t => epollExample t
     "epoll_performance"       :: t => epollPerformance t
     _                              =>
@@ -133,7 +142,7 @@ prog = do
         addFlags Stdin O_NONBLOCK
         (fd,str) <- mkstemp "linux/build/hello"
         stdoutLn "opened temporary file: \{str}"
-        writeAll fd "a temporary hello world\n"
+        fwrite fd "a temporary hello world\n"
         anyErr $ cleanup fd
         tid <- pthreadSelf
         cnt <- newIORef Z

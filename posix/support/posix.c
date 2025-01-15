@@ -1,17 +1,21 @@
 // Copyright 2024 Stefan Höck
 
+#include <arpa/inet.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <netinet/in.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/time.h>
+#include <sys/un.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -670,3 +674,113 @@ void set_itimerspec_it_value(struct itimerspec *v, struct timespec *val) {
   v->it_value = *val;
 }
 #endif
+
+////////////////////////////////////////////////////////////////////////////////
+// Sockets
+////////////////////////////////////////////////////////////////////////////////
+
+struct sockaddr_un *li_sockaddr_un(const char *path) {
+  struct sockaddr_un *addr = malloc(sizeof(struct sockaddr_un));
+  memset(addr, 0, sizeof(struct sockaddr_un));
+  addr->sun_family = AF_UNIX;
+  strncpy(addr->sun_path, path, sizeof(addr->sun_path) - 1);
+  return addr;
+}
+
+struct sockaddr_in *li_sockaddr_in(uint32_t ad, uint16_t port) {
+  struct sockaddr_in *addr = malloc(sizeof(struct sockaddr_in));
+  memset(addr, 0, sizeof(struct sockaddr_in));
+  addr->sin_family = AF_INET;
+  addr->sin_port = htons(port);
+  addr->sin_addr.s_addr = htonl(ad);
+  return addr;
+}
+
+struct sockaddr_in6 *li_sockaddr_in6(uint16_t port) {
+  struct sockaddr_in6 *addr = malloc(sizeof(struct sockaddr_in6));
+  memset(addr, 0, sizeof(struct sockaddr_in6));
+  addr->sin6_family = AF_INET6;
+  addr->sin6_port = htons(port);
+  return addr;
+}
+
+char *sockaddr_un_path(struct sockaddr_un *addr) {
+  return addr->sun_path;
+}
+
+uint32_t sockaddr_in_addr(struct sockaddr_in *addr) {
+  return ntohl(addr->sin_addr.s_addr);
+}
+
+const char *sockaddr_in_addr_str(struct sockaddr_in *addr) {
+  char res[INET_ADDRSTRLEN];
+  const char *buf = inet_ntop(AF_INET, &addr->sin_addr, res, INET_ADDRSTRLEN);
+
+  if (buf == NULL) {
+    return "";
+  } else {
+    return buf;
+  }
+}
+
+uint16_t sockaddr_in_port(struct sockaddr_in *addr) {
+  return ntohs(addr->sin_port);
+}
+
+unsigned char *sockaddr_in6_addr(struct sockaddr_in6 *addr) {
+  return addr->sin6_addr.s6_addr;
+}
+
+const char *sockaddr_in6_addr_str(struct sockaddr_in6 *addr) {
+  char res[INET6_ADDRSTRLEN];
+  const char *buf = inet_ntop(AF_INET, &addr->sin6_addr, res, INET6_ADDRSTRLEN);
+
+  if (buf == NULL) {
+    return "";
+  } else {
+    return buf;
+  }
+}
+
+int li_socket(int domain, int type) {
+  int res = socket(domain, type, 0);
+  CHECKRES
+}
+
+int li_bind(int sfd, struct sockaddr *addr, size_t len) {
+  int res = bind(sfd, addr, len);
+  CHECKRES
+}
+
+int li_listen(int sfd, int backlog) {
+  int res = listen(sfd, backlog);
+  CHECKRES
+}
+
+int li_accept(int sfd) {
+  int res = accept(sfd, NULL, NULL);
+  CHECKRES
+}
+
+int li_connect(int sfd, struct sockaddr *addr, size_t len) {
+  int res = connect(sfd, addr, len);
+  CHECKRES
+}
+
+ssize_t li_recv(int fd, char *buf, size_t bytes, int flags) {
+  int res = recv(fd, buf, bytes, flags);
+  CHECKRES
+}
+
+ssize_t li_recvfrom(int fd, char *buf, size_t bytes, int flags,
+                    struct sockaddr *addr, socklen_t len) {
+  socklen_t plen = len;
+  int res = recvfrom(fd, buf, bytes, flags, addr, &plen);
+  CHECKRES
+}
+
+ssize_t li_sendto(int fd, char *buf, size_t off, size_t bytes, int flags,
+                  struct sockaddr *addr, socklen_t len) {
+  int res = sendto(fd, buf + off, bytes, flags, addr, len);
+  CHECKRES
+}

@@ -13,6 +13,7 @@ import public Data.C.Ptr
 import public System.Posix.Errno
 import public System.Posix.File.FileDesc
 import public System.Posix.File.Flags
+import public System.Posix.File.ReadRes
 import public System.Posix.File.Whence
 
 %default total
@@ -40,37 +41,29 @@ parameters {auto fid : FileDesc a}
   close : io ()
   close = eprim (P.close fd)
 
-  ||| Reads at most `n` bytes from a file into an allocated pointer.
+  ||| Reads at most `n` bytes from a file into a pre-allocated pointer.
   export %inline
-  readPtr : AnyPtr -> (n : Bits32) -> io Bits32
-  readPtr ptr = eprim . P.readPtr fd ptr
+  readPtr : (0 r : Type) -> FromPtr r => CPtr -> io r
+  readPtr r = eprim . P.readPtr fd r
 
-  ||| Reads at most `n * sizeof a` bytes into a preallocated array.
+  ||| Reads at most `n` bytes from a file into a pre-allocated pointer.
   export %inline
-  readArr : {n : _} -> SizeOf b => CArrayIO n b -> io (k ** CArrayIO k b)
-  readArr = eprim . P.readArr fd
-
-  ||| Reads at most `n * sizeof a` bytes into a preallocated array and
-  ||| converts it to a list of values.
-  export %inline
-  readVals :
-       {n : _}
-    -> {auto sof : SizeOf b}
-    -> {auto der : Deref b}
-    -> CArrayIO n b
-    -> (b -> PrimIO c)
-    -> io (List c)
-  readVals p = eprim . P.readVals fd p
-
-  ||| Reads at most `n` bytes from a file into a buffer.
-  export %inline
-  readRaw : Buffer -> (n : Bits32) -> io (k ** IOBuffer k)
-  readRaw buf = eprim . P.readRaw fd buf
+  readPtrRes : (0 r : Type) -> FromPtr r => CPtr -> io (ReadRes r)
+  readPtrRes r = eprim . P.readPtrRes fd r
 
   ||| Reads at most `n` bytes from a file into a bytestring.
   export %inline
-  read : (n : Bits32) -> io ByteString
-  read = eprim . P.read fd
+  read : (0 r : Type) -> FromBuf r => (n : Bits32) -> io r
+  read r = eprim . P.read fd r
+
+  ||| Reads at most `n` bytes from a file into a bytestring.
+  |||
+  ||| This is a more convenient version of `read` that gives detailed
+  ||| information about why a read might fail. It is especially useful
+  ||| when reading from - possibly non-blocking - pipes or sockets.
+  export %inline
+  readres : (0 r : Type) -> FromBuf r => (n : Bits32) -> io (ReadRes r)
+  readres r = eprim . P.readres fd r
 
   ||| Atomically reads up to `n` bytes from the given file at
   ||| the given file offset.
@@ -79,8 +72,8 @@ parameters {auto fid : FileDesc a}
   |||        arbitrary data streams such as pipes or sockets.
   |||        Also, it will not change the position of the open file description.
   export %inline
-  pread : (n : Bits32) -> OffT -> io ByteString
-  pread n = eprim . P.pread fd n
+  pread : (0 r : Type) -> FromBuf r => (n : Bits32) -> OffT -> io r
+  pread r n = eprim . P.pread fd r n
 
   ||| Writes up to the number of bytes in the bytestring
   ||| to the given file.
@@ -88,34 +81,16 @@ parameters {auto fid : FileDesc a}
   ||| Note: This is an atomic operation if `fd` is a regular file that
   |||       was opened in "append" mode (with the `O_APPEND` flag).
   export %inline
-  writeBytes : ByteString -> io Bits32
-  writeBytes = eprim . P.writeBytes fd
+  write : ToBuf r => r -> io Bits32
+  write = eprim . P.write fd
 
-  ||| Writes up to the given number of bytes from the given buffer starting
-  ||| at the given offset.
-  |||
-  ||| Note: This is an atomic operation if `fd` is a regular file that
-  |||       was opened in "append" mode (with the `O_APPEND` flag).
+  ||| Iteratively writes a value to a file descriptor making sure
+  ||| that the whole value is written. Use this, if a single call to
+  ||| `write` might not write the complete data (for instance, when
+  ||| writing to a pipe or socket).
   export %inline
-  writeRaw : Buffer -> (offset,n : Bits32) -> io Bits32
-  writeRaw buf o = eprim . P.writeRaw fd buf o
-
-  ||| Writes up to the number of bytes from the given C ptr.
-  |||
-  ||| Note: This is an atomic operation if `fd` is a regular file that
-  |||       was opened in "append" mode (with the `O_APPEND` flag).
-  export %inline
-  writePtr : AnyPtr -> (n : Bits32) -> io Bits32
-  writePtr buf = eprim . P.writePtr fd buf
-
-  ||| Writes the content of the given array.
-  |||
-  ||| Note: This is an atomic operation if `fd` is a regular file that
-  |||       was opened in "append" mode (with the `O_APPEND` flag).
-  export %inline
-  writeArr : {n : _} -> SizeOf b => CArrayIO n b -> io Bits32
-  writeArr p = eprim (P.writeArr fd p)
-
+  fwrite : ToBuf r => r -> io ()
+  fwrite = eprim . P.fwrite fd
 
   ||| Atomically writes up to the number of bytes in the bytestring
   ||| to the given file at the given file offset.
@@ -124,20 +99,9 @@ parameters {auto fid : FileDesc a}
   |||        arbitrary data streams such as pipes or sockets.
   |||        Also, it will not change the position of the open file description.
   export
-  pwriteBytes : ByteString -> OffT -> io Bits32
-  pwriteBytes bs = eprim . P.pwriteBytes fd bs
+  pwrite : ToBuf r => r -> OffT -> io Bits32
+  pwrite bs = eprim . P.pwrite fd bs
 
-  export %inline
-  write : {n : _} -> IBuffer n -> io Bits32
-  write = eprim . P.write fd
-
-  export %inline
-  writeStr : String -> io Bits32
-  writeStr = eprim . P.writeStr fd
-
-  export %inline
-  writeStrLn : String -> io Bits32
-  writeStrLn = eprim . P.writeStrLn fd
 
 --------------------------------------------------------------------------------
 -- File seeking

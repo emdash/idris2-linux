@@ -4,7 +4,7 @@ TARGET_VERSION ?= 0.0.1
 INSTALLDIR = ../lib
 
 LDFLAGS =
-CPPFLAGS =
+CPPFLAGS = -fPIC
 
 CC_VERSION = $(shell $(CC) --version)
 

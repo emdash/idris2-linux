@@ -11,6 +11,8 @@ on:
     branches:
       - main
 
+permissions: {}
+
 defaults:
   run:
     shell: bash
@@ -19,9 +21,13 @@ defaults:
 jobs:
   darwin-build:
     name: Build Posix lib for Darwin
-    runs-on: macos-latest
     strategy:
       fail-fast: false
+      matrix:
+        os:
+          - macos-13
+          - macos-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Install Nix
         uses: cachix/install-nix-action@v24

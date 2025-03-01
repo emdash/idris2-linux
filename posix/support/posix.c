@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdint.h>
@@ -235,6 +236,39 @@ int li_chdir(const char *buf) {
 int li_chroot(const char *buf) {
   int res = chroot(buf);
   CHECKRES
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Poll
+////////////////////////////////////////////////////////////////////////////////
+
+int li_poll(struct pollfd *fds, nfds_t nfds, int timeout) {
+  int res = poll(fds, nfds, timeout);
+  CHECKRES
+}
+
+uint32_t get_pollfd_fd(struct pollfd *fd) {
+  return fd->fd;
+}
+
+uint16_t get_pollfd_events(struct pollfd *fd) {
+  return fd->events;
+}
+
+uint16_t get_pollfd_revents(struct pollfd *fd) {
+  return fd->revents;
+}
+
+void set_pollfd_fd(struct pollfd *fd, uint32_t val) {
+  fd->fd = val;
+}
+
+void set_pollfd_events(struct pollfd *fd, uint16_t val) {
+  fd->events = val;
+}
+
+void set_pollfd_revents(struct pollfd *fd, uint16_t val) {
+  fd->revents = val;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

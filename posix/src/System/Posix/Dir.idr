@@ -38,7 +38,7 @@ export
 fdopendir : FileDesc a => Has Errno es => EIO1 f => a -> f es Dir
 fdopendir v = elift1 (P.fdopendir v)
 
-||| Closes a directory.
+||| Rewinds a directory.
 export
 rewinddir : HasIO io => Dir -> io ()
 rewinddir = primIO . P.rewinddir

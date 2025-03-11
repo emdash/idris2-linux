@@ -205,7 +205,7 @@ condWait p m = posToUnit $ prim__pthread_cond_wait p.ptr m.ptr
 
 ||| Like `condWait` but will return `False` in case the operation timed out.
 export %inline
-condTimedwait : CondT -> MutexT -> Clock Duration -> EPrim Bool
+condTimedwait : CondT -> MutexT -> Clock UTC -> EPrim Bool
 condTimedwait p m cl =
   withTimespec cl $ \ts =>
     posNotErr ETIMEDOUT (prim__pthread_cond_timedwait p.ptr m.ptr (unwrap ts))

@@ -111,7 +111,7 @@ condWait c m = elift1 (condWait c m)
 
 ||| Like `condWait` but will return `False` in case the operation timed out.
 export %inline
-condTimedwait : Has Errno es => EIO1 f => CondT -> MutexT -> Clock Duration -> f es Bool
+condTimedwait : Has Errno es => EIO1 f => CondT -> MutexT -> Clock UTC -> f es Bool
 condTimedwait c m d = elift1 (condTimedwait c m d)
 
 --------------------------------------------------------------------------------

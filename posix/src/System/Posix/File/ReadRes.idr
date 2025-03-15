@@ -116,7 +116,7 @@ record Buf where
 export %inline
 buf : Bits32 -> F1 World Buf
 buf sz t =
-  let b # t := toF1 (prim__newBuf sz) t
+  let b # t := toF1 (prim__newBuf $ cast sz) t
    in B sz b # t
 
 ||| Interface for wrapping or converting a freshly allocated buffer
@@ -214,7 +214,7 @@ export
   unsafeToBuf vs =
     run1 $ \t =>
      let sz      := cast n * sizeof a
-         buf # t := ffi (prim__newBuf sz) t
+         buf # t := ffi (prim__newBuf $ cast sz) t
          arr # t := malloc1 a n t
          _   # t := writeVect arr vs t
          _   # t := ffi (prim__copy_pb (unsafeUnwrap arr) buf sz) t
@@ -277,14 +277,14 @@ SizeOf a => FromPtr (ECArrayIO a) where
 export
 FromPtr EBuffer where
   fromPtr (CP sz32 ptr) t =
-    let buf # t := toF1 (prim__newBuf sz32) t
+    let buf # t := toF1 (prim__newBuf $ cast sz32) t
         _   # t := toF1 (prim__copy_pb ptr buf sz32) t
      in (cast sz32 ** unsafeMakeBuffer buf) # t
 
 export
 FromPtr EMBuffer where
   fromPtr (CP sz32 ptr) t =
-    let buf # t := toF1 (prim__newBuf sz32) t
+    let buf # t := toF1 (prim__newBuf $ cast sz32) t
         _   # t := toF1 (prim__copy_pb ptr buf sz32) t
      in (cast sz32 ** unsafeMBuffer buf) # t
 

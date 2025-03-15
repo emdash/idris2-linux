@@ -43,7 +43,7 @@ parameters {auto he : Has Errno es}
   chld : Bits32 -> Bits32 -> Vect 2 Fd -> Prog es ()
   chld tot sz [i,o] = do
     close i
-    buf <- primIO (prim__newBuf sz)
+    buf <- primIO (prim__newBuf $ cast sz)
     strm buf 0 tot
     close o
 

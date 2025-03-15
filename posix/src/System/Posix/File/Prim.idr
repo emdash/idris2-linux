@@ -101,7 +101,7 @@ prim__readlink : (file : String) -> Buffer -> (max : Bits32) -> PrimIO SsizeT
 export %inline
 allocRead : FromBuf a => Bits32 -> (Buffer -> Bits32 -> PrimIO SsizeT) -> EPrim a
 allocRead n act t =
-  let buf # t := toF1 (prim__newBuf n) t
+  let buf # t := toF1 (prim__newBuf $ cast n) t
       rd  # t := toF1 (act buf n) t
    in if rd < 0
          then E (inject $ fromNeg rd) t
@@ -115,7 +115,7 @@ toRes :
   -> (Buffer -> Bits32 -> PrimIO SsizeT)
   -> EPrim (ReadRes a)
 toRes n act t =
-  let buf # t := toF1 (prim__newBuf n) t
+  let buf # t := toF1 (prim__newBuf $ cast n) t
       rd  # t := toF1 (act buf n) t
    in if      rd < 0  then fromErr (fromNeg rd) t
       else if rd == 0 then R EOI t
@@ -339,7 +339,7 @@ mkstemp : String -> EPrim (Fd, String)
 mkstemp f t =
   let pat     := "\{f}XXXXXX"
       len     := cast {to = Bits32} $ stringByteLength pat
-      buf # t := toF1 (prim__newBuf len) t
+      buf # t := toF1 (prim__newBuf $ cast len) t
       _   # t := ioToF1 (setString buf 0 pat) t
       R fd  t := toFD (prim__mkstemp buf) t | E x t => E x t
       nm  # t := fromBuf (B len buf) t

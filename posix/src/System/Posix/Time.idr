@@ -494,6 +494,18 @@ namespace STm
 
   %runElab derive "Tm" [Show,Eq]
 
+  ||| A broken down time value with all fields set to zero (and `False`).
+  |||
+  ||| Since `mday` - the day of the month - cannot be 0, it is set to 1 instead.
+  export
+  blank : Tm
+  blank = TM 0 0 0 1 0 0 0 0 False
+
+  ||| Unix Epoch (00:00:00 on Thursday 1 January 1970)
+  export
+  epoch : Tm
+  epoch = TM 0 0 0 1 0 70 4 0 False
+
   export
   tm : STm s -> F1 s Tm
   tm stm t =

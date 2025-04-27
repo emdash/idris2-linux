@@ -71,6 +71,7 @@ int main() {
   print_signal("SIGXFSZ", SIGXFSZ);
   print_signal("SIGVTALRM", SIGVTALRM);
   print_signal("SIGPROF", SIGPROF);
+  print_signal("SIGWINCH", SIGWINCH);
   print_signal("SIGSYS", SIGSYS);
 #ifdef __GLIBC__
   print_signal("SIGPOLL", SIGPOLL);
@@ -106,6 +107,7 @@ int main() {
   print_pair("SIGXFSZ");
   print_pair("SIGVTALRM");
   print_pair("SIGPROF");
+  print_pair("SIGWINCH");
   print_pair("SIGSYS");
 #ifdef __GLIBC__
   print_pair("SIGPOLL");

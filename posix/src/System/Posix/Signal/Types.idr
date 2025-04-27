@@ -151,6 +151,10 @@ SIGPROF : Signal
 SIGPROF = 27
 
 public export %inline
+SIGWINCH : Signal
+SIGWINCH = 28
+
+public export %inline
 SIGSYS : Signal
 SIGSYS = 31
 
@@ -188,6 +192,7 @@ sigName =
     , (SIGXFSZ, "SIGXFSZ")
     , (SIGVTALRM, "SIGVTALRM")
     , (SIGPROF, "SIGPROF")
+    , (SIGWINCH, "SIGWINCH")
     , (SIGSYS, "SIGSYS")
     , (SIGPOLL, "SIGPOLL")
     ]
